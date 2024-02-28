@@ -1,11 +1,11 @@
-use std::thread::sleep;
+use crossterm::event::{poll, read, Event, KeyCode};
 use rand::Rng;
 use std::process::Command;
+use std::thread::sleep;
 use std::time::Duration;
-use crossterm::event::{read,Event,KeyCode};
 /// 定义墙的宽高
-const WIDTH:usize = 50;
-const HEIGHT:usize = 20;
+const WIDTH: usize = 50;
+const HEIGHT: usize = 20;
 // 地图
 type Map = [[char; WIDTH]; HEIGHT];
 
@@ -30,14 +30,17 @@ fn main() {
         print_map(&map);
         current_direction = control_snake(&mut snake, current_direction, &mut food, &mut map);
         // 判断游戏是否结束
-        if !is_game_over(&snake){
+        if !is_game_over(&snake) {
             println!("Game Over!");
             break;
         }
         sleep(Duration::from_millis(snake.speed as u64));
-
     }
-    Command::new("cmd.exe").arg("/c").arg("pause").status().expect("clear error!");
+    Command::new("cmd.exe")
+        .arg("/c")
+        .arg("pause")
+        .status()
+        .expect("clear error!");
 }
 
 /// 蛇
@@ -70,14 +73,14 @@ fn create_snake() -> Snake {
     }
 }
 /// 随机生成食物
-fn random_new_food(food: &mut Food,snake: &Snake){
+fn random_new_food(food: &mut Food, snake: &Snake) {
     // 判断食物是否被吃
     if !food.eated {
-        return
+        return;
     }
     let mut rng = rand::thread_rng();
     // 生成随机位置
-    food.position = (rng.gen_range(1..WIDTH-1), rng.gen_range(1..HEIGHT-1));
+    food.position = (rng.gen_range(1..HEIGHT - 1), rng.gen_range(1..WIDTH - 1));
     // 判断是否与蛇身重叠
     while is_food_collide_with_snake(food, snake) {
         random_new_food(food, snake);
@@ -94,7 +97,7 @@ fn is_food_collide_with_snake(food: &Food, snake: &Snake) -> bool {
 /// 添加食物到地图
 fn add_food_to_map(food: &Food, map: &mut Map) {
     if food.eated {
-        return
+        return;
     }
     map[food.position.0][food.position.1] = '♥';
 }
@@ -128,7 +131,7 @@ enum Direction {
     Right,
 }
 /// 移动蛇
-fn move_snake(snake: &mut Snake, direction: Direction,food: &mut Food,map: &mut Map) {
+fn move_snake(snake: &mut Snake, direction: Direction, food: &mut Food, map: &mut Map) {
     let before_head = snake.head;
     let mut eated = false;
     match direction {
@@ -137,19 +140,19 @@ fn move_snake(snake: &mut Snake, direction: Direction,food: &mut Food,map: &mut 
             eated = snake.head == food.position;
             map[snake.head.0][snake.head.1] = '●';
             map[before_head.0][before_head.1] = '▣';
-        },
+        }
         Direction::Left => {
             snake.head.1 -= 1;
             eated = snake.head == food.position;
             map[snake.head.0][snake.head.1] = '●';
             map[before_head.0][before_head.1] = '▣';
-        },
+        }
         Direction::Right => {
             snake.head.1 += 1;
             eated = snake.head == food.position;
             map[snake.head.0][snake.head.1] = '●';
             map[before_head.0][before_head.1] = '▣';
-        },
+        }
         Direction::Down => {
             snake.head.0 += 1;
             eated = snake.head == food.position;
@@ -169,20 +172,31 @@ fn move_snake(snake: &mut Snake, direction: Direction,food: &mut Food,map: &mut 
 
 /// 清屏
 fn clear_screen() {
-    Command::new("cmd.exe").arg("/c").arg("cls").status().expect("clear error!");
+    Command::new("cmd.exe")
+        .arg("/c")
+        .arg("cls")
+        .status()
+        .expect("clear error!");
 }
 
 /// 键盘控制
-fn control_snake(snake: &mut Snake,dir:Direction,food: &mut Food,map: &mut Map) -> Direction {
+fn control_snake(snake: &mut Snake, dir: Direction, food: &mut Food, map: &mut Map) -> Direction {
     let mut direction = dir;
-    if let Ok(Event::Key(event)) = read() {
-        direction = match event.code {
-            KeyCode::Char('w') => Direction::Up,
-            KeyCode::Char('s') => Direction::Down,
-            KeyCode::Char('a') => Direction::Left,
-            KeyCode::Char('d') => Direction::Right,
-            _ => dir
-        };
+    // 按键输入超时，直接使用原始方向
+    loop {
+        if poll(Duration::from_millis(300)).unwrap() {
+            if let Ok(Event::Key(event)) = read() {
+                direction = match event.code {
+                    KeyCode::Char('w') => Direction::Up,
+                    KeyCode::Char('s') => Direction::Down,
+                    KeyCode::Char('a') => Direction::Left,
+                    KeyCode::Char('d') => Direction::Right,
+                    _ => dir,
+                };
+            }
+        }else {
+            break;
+        }
     }
     move_snake(snake, direction, food, map);
     direction
@@ -192,7 +206,7 @@ fn control_snake(snake: &mut Snake,dir:Direction,food: &mut Food,map: &mut Map) 
 fn is_game_over(snake: &Snake) -> bool {
     for i in 0..snake.body.len() {
         if snake.body[i] == snake.head {
-            return false
+            return false;
         }
     }
     true
